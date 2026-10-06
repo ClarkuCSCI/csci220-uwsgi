@@ -3,7 +3,7 @@ import time
 from urllib.parse import parse_qs
 from html import escape
 
-import psycopg2
+import psycopg
 
 
 def wrapBody(body, title="Blank Title"):
@@ -348,16 +348,16 @@ def application(env, start_response):
 
     body = ""
     try:
-        conn = psycopg2.connect(
+        conn = psycopg.connect(
             host="postgres",
             dbname=os.environ["POSTGRES_DB"],
             user=os.environ["POSTGRES_USER"],
             password=os.environ["POSTGRES_PASSWORD"],
         )
-    except psycopg2.Warning as e:
+    except psycopg.Warning as e:
         print(f"Database warning: {e}")
         body += "Check logs for DB warning"
-    except psycopg2.Error as e:
+    except psycopg.Error as e:
         print(f"Database error: {e}")
         body += "Check logs for DB error"
 

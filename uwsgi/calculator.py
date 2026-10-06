@@ -3,7 +3,7 @@ import time
 from urllib.parse import parse_qs
 from html import escape
 
-import psycopg2
+import psycopg
 
 
 def wrapBody(body, title="Blank Title"):
