@@ -51,6 +51,23 @@ def showActionMenu(entity):
     entity,
   )
 
+def get_qs_post(env):
+  """
+  :param env: WSGI environment
+  :returns: A tuple (qs, post), containing the query string and post data,
+            respectively
+  """
+  try:
+    request_body_size = int(env.get("CONTENT_LENGTH", 0))
+  except ValueError:
+    request_body_size = 0
+  request_body = env["wsgi.input"].read(request_body_size).decode("utf-8")
+  post = parse_qs(request_body)
+  return parse_qs(env["QUERY_STRING"]), post
+
+"""
+STUDENT FUNCTIONS
+"""
 
 def showAddStudentForm():
   return """
@@ -107,21 +124,6 @@ def addStudent(conn, name):
     <p><a href="./university.py">Return to main page.</a></p>
     """
   return body, True
-
-
-def get_qs_post(env):
-  """
-  :param env: WSGI environment
-  :returns: A tuple (qs, post), containing the query string and post data,
-            respectively
-  """
-  try:
-    request_body_size = int(env.get("CONTENT_LENGTH", 0))
-  except ValueError:
-    request_body_size = 0
-  request_body = env["wsgi.input"].read(request_body_size).decode("utf-8")
-  post = parse_qs(request_body)
-  return parse_qs(env["QUERY_STRING"]), post
 
 
 def showUpdateStudentIdForm():
@@ -358,6 +360,235 @@ def showAllStudents(conn):
   return body, True
 
 
+""" 
+ENROLLMENTS FUNCTIONS
+"""
+
+def showAddEnrollmentForm():
+  return """
+    <a href="./university.py">Return to main page.</a>
+    <h2>Add An Enrolled</h2>
+    <p>
+    <FORM METHOD="POST" action="university.py">
+    <table>
+        <tr>
+            <td>Student ID</td>
+            <td><INPUT TYPE="TEXT" NAME="student" VALUE=""></td>
+        </tr>
+        <tr>
+            <td>Course ID</td>
+            <td><INPUT TYPE="TEXT" NAME="course" VALUE=""></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><INPUT TYPE="SUBMIT" NAME="addEnrollment" VALUE="Add"></td>
+        </tr>
+    </table>
+    </FORM>
+    """
+    
+    
+def addEnrollment(conn, student, course):
+  """
+  Inserts a new enrolled. Returns (body, succeeded).
+  """
+  student = student.strip()
+  course = course.strip().upper()
+  
+  if not student or not course:
+    return "<p>Error: Student ID and Course ID cannot be empty.</p>", False
+
+  try:
+    studentId = int(student)
+  except ValueError:
+    return "<p>Error: Student ID must be a whole number.</p>", False
+
+  cursor = conn.cursor()
+  try:
+    cursor.execute("INSERT INTO enrolled (student, course) VALUES (%s,%s)", (studentId, course))
+    conn.commit()
+  except psycopg.Error as e:
+    conn.rollback()
+    print(f"Database error: {e}")
+    return f"<p>Add Enrolled Failed.</p><p>Error: {escape(str(e))}</p>", False
+
+  body = f"""
+    <p>Add Enrolled Succeeded.</p>
+    <table border=1>
+        <tr>
+            <td>Student ID</td>
+            <td>{escape(student)}</td>
+        </tr>
+        <tr>
+            <td>Course ID</td>
+            <td>{escape(course)}</td>
+        </tr>
+    </table>
+    <p><a href="./university.py">Return to main page.</a></p>
+    """
+  return body, True
+    
+  
+def showupdateEnrollmentForm():
+  return """
+    <a href="./university.py">Return to main page.</a>
+    <h2>Update An Enrolled</h2>
+    <p>
+    <FORM METHOD="POST" action="university.py">
+    <table>
+        <tr>
+            <td>Student ID</td>
+            <td><INPUT TYPE="TEXT" NAME="student" VALUE=""></td>
+        </tr>
+        <tr>
+          <td>Current Course ID</td>
+          <td><INPUT TYPE="TEXT" NAME="currentCourse" VALUE=""></td>
+        </tr>
+        <tr>
+          <td>New Course ID</td>
+          <td><INPUT TYPE="TEXT" NAME="newCourse" VALUE=""></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><INPUT TYPE="SUBMIT" NAME="updateEnrollment" VALUE="Update"></td>
+        </tr>
+    </table>
+    </FORM>
+    """
+    
+    
+def updateEnrollment(conn, student, currentCourse, newCourse):
+  """
+  Updates an enrolled. Returns (body, succeeded).
+  """
+  student = student.strip()
+  currentCourse = currentCourse.strip().upper()
+  newCourse = newCourse.strip().upper()
+  
+  if not student or not currentCourse or not newCourse:
+    return "<p>Error: Student ID, current course ID, and new course ID cannot be empty.</p>", False
+
+  try:
+    studentId = int(student)
+  except ValueError:
+    return "<p>Error: Student ID must be a whole number.</p>", False
+
+  cursor = conn.cursor()
+  try:
+    cursor.execute(
+      "UPDATE enrolled SET course=%s WHERE student=%s AND course=%s",
+      (newCourse, studentId, currentCourse),
+    )
+    conn.commit()
+  except psycopg.Error as e:
+    conn.rollback()
+    print(f"Database error: {e}")
+    return f"<p>Update Enrolled Failed.</p><p>Error: {escape(str(e))}</p>", False
+
+  if cursor.rowcount == 0:
+    return f"<p>Update Enrolled Failed. No enrollment found for Student ID {student} and Course ID {currentCourse}.</p>", False
+
+  body = f"""
+    <p>Update Enrolled Succeeded.</p>
+    <table border=1>
+        <tr>
+            <td>Student ID</td>
+            <td>{escape(student)}</td>
+        </tr>
+        <tr>
+            <td>Course ID</td>
+          <td>{escape(newCourse)}</td>
+        </tr>
+    </table>
+    <p><a href="./university.py">Return to main page.</a></p>
+    """
+  return body, True
+
+
+def showDeleteEnrollmentForm():
+  return """
+    <a href="./university.py">Return to main page.</a>
+    <h2>Delete An Enrolled</h2>
+    <p>
+    <FORM METHOD="POST" action="university.py">
+    <table>
+        <tr>
+            <td>Student ID</td>
+            <td><INPUT TYPE="TEXT" NAME="student" VALUE=""></td>
+        </tr>
+        <tr>
+            <td>Course ID</td>
+            <td><INPUT TYPE="TEXT" NAME="course" VALUE=""></td>
+        </tr>
+        <tr>
+            <td></td>
+            <td><INPUT TYPE="SUBMIT" NAME="deleteEnrollment" VALUE="Delete"></td>
+        </tr>
+    </table>
+    </FORM>
+    """ 
+    
+    
+def deleteEnrollment(conn, student, course):
+  """
+  Deletes an enrolled. Returns (body, succeeded).
+  """
+  student = student.strip()
+  course = course.strip().upper()
+  
+  if not student or not course:
+    return "<p>Error: Student ID and Course ID cannot be empty.</p>", False
+
+  cursor = conn.cursor()
+  try:
+    cursor.execute("DELETE FROM enrolled WHERE student=%s AND course=%s", (int(student), course))
+    conn.commit()
+  except psycopg.Error as e:
+    conn.rollback()
+    print(f"Database error: {e}")
+    return f"<p>Delete Enrolled Failed.</p><p>Error: {escape(str(e))}</p>", False
+
+  if cursor.rowcount == 0:
+    return f"<p>Delete Enrolled Failed. No enrolled with Student ID {student} and Course ID {course}.</p>", False
+
+  body = f"""
+    <p>Delete Enrolled Succeeded. Enrolled with Student ID {escape(student)} and Course ID {escape(course)} was deleted.</p>
+    <p><a href="./university.py">Return to main page.</a></p>
+    """
+  return body, True
+
+
+def showAllEnrollments(conn):
+  """
+  Returns (body, succeeded). On success the body is a table of all enrollments.
+  """
+  cursor = conn.cursor()
+  try:
+    cursor.execute("SELECT student, course FROM enrolled ORDER BY student")
+    data = cursor.fetchall()
+  except psycopg.Error as e:
+    conn.rollback()
+    print(f"Database error: {e}")
+    return f"<p>Display Enrollments Failed.</p><p>Error: {escape(str(e))}</p>", False
+
+  body = """
+    <a href="./university.py">Return to main page.</a>
+    <h2>enrolled List</h2>
+    <p>
+    <table border=1>
+      <tr>
+        <td><font size=+1><b>Student ID</b></font></td>
+        <td><font size=+1><b>Course ID</b></font></td>
+      </tr>
+    """
+
+  # each iteration of this loop creates one row of output:
+  for student, course in data:
+    body += f"<tr><td>{student}</td><td>{escape(course)}</td></tr>\n"
+
+  body += f"</table><p>Found {len(data)} enrollments.</p>"
+  return body, True
+  
 def application(env, start_response):
   qs, post = get_qs_post(env)
 
@@ -384,6 +615,8 @@ def application(env, start_response):
     body += showActionMenu("Rooms")
   elif "showEnrollments" in post:
     body += showActionMenu("Enrollments")
+    
+  ## STUDENT ROUTING  
   # Students > Add: show the form
   elif "add" in post and post.get("entity", [""])[0] == "Students":
     body += showAddStudentForm()
@@ -431,6 +664,44 @@ def application(env, start_response):
   elif "display" in post and post.get("entity", [""])[0] == "Students":
     b, ok = showAllStudents(conn)
     body += b
+  ##ENROLLED ROUTING
+  # Enrollments > Add: show the form
+  elif "add" in post and post.get("entity", [""])[0] == "Enrollments":
+    body += showAddEnrollmentForm()
+  # Enrollments > Add: process the submitted form
+  elif "addEnrollment" in post:
+    b, ok = addEnrollment(conn, post.get("student", [""])[0], post.get("course", [""])[0])
+    body += b
+    if not ok:
+      # show the form again so the user can retry
+      body += showAddEnrollmentForm()
+  # Enrollments > Update: ask for the id
+  elif "update" in post and post.get("entity", [""])[0] == "Enrollments":
+    body += showupdateEnrollmentForm()
+  # Enrollments > Update: process the submitted form
+  elif "updateEnrollment" in post:
+    b, ok = updateEnrollment(
+      conn,
+      post.get("student", [""])[0],
+      post.get("currentCourse", [""])[0],
+      post.get("newCourse", [""])[0],
+    )
+    body += b
+    if not ok:
+      body += showupdateEnrollmentForm()
+  # Enrollments > Delete: ask for the id
+  elif "delete" in post and post.get("entity", [""])[0] == "Enrollments":
+    body += showDeleteEnrollmentForm()
+  # Enrollments > Delete: process the submitted form
+  elif "deleteEnrollment" in post:
+    b, ok = deleteEnrollment(conn, post.get("student", [""])[0], post.get("course", [""])[0])
+    body += b
+    if not ok:
+      body += showDeleteEnrollmentForm()
+  # Enrollments > Display: show all enrollments
+  elif "display" in post and post.get("entity", [""])[0] == "Enrollments":
+    b, ok = showAllEnrollments(conn)
+    body += b
   # default case: show the main menu
   else:
     body += showMainMenu()
@@ -440,3 +711,6 @@ def application(env, start_response):
 
   start_response("200 OK", [("Content-Type", "text/html")])
   return [wrapBody(body, title="University").encode("utf-8")]
+
+  
+  

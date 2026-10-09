@@ -11,7 +11,7 @@ Christopher Siems
 
 Number of hours for Christopher Siems: 4
 
-Number of hours for 2nd TEAMMATE's NAME:
+Number of hours for Raymond Zheng: 4
 
 Number of hours for 3rd TEAMMATE's NAME:
 
